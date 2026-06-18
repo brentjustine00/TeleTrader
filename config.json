@@ -1,0 +1,34 @@
+{
+  "tradelocker": {
+    "environment": "https://demo.tradelocker.com",
+    "server": "HEROFX",
+    "username": "brentjustine00@gmail.com",
+    "password": "%bNVlk1/.;",
+    "access_token": "",
+    "refresh_token": "",
+    "account_id": 0,
+    "acc_num": 0
+  },
+  "telegram": {
+    "api_id": 33435814,
+    "api_hash": "877f5688c6cbd9a0015b5ccd3ba4895c",
+    "session_name": "gold_scraper",
+    "string_session": "",
+    "channel_ids": [
+      -1001448427808
+    ]
+  },
+  "gemini": {
+    "api_key": "your_gemini_api_key_here",
+    "model": "gemini-2.5-flash"
+  },
+  "risk": {
+    "risk_type": "fixed",
+    "fixed_lot_size": 0.01,
+    "risk_percentage": 1.0,
+    "gold_contract_size": 100.0,
+    "breakeven_buffer": 0.2,
+    "partial_close_percentages": [0.25, 0.25, 0.25, 0.25],
+    "polling_interval": 2.0
+  }
+}
