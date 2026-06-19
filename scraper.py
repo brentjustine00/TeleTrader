@@ -44,7 +44,11 @@ class TelegramScraper:
         self.session_name = self.telegram_config.get("session_name", "gold_scraper")
         self.channel_ids = self.telegram_config.get("channel_ids", [])
         
-        self.gemini_key = self.gemini_config.get("api_key")
+        import os
+        self.gemini_key = os.environ.get("GEMINI_API_KEY") or self.gemini_config.get("api_key")
+        if self.gemini_key == "your_gemini_api_key_here":
+            self.gemini_key = None
+            
         self.gemini_model = self.gemini_config.get("model", "gemini-2.5-flash")
         
         self.client: Optional[TelegramClient] = None
@@ -110,7 +114,7 @@ class TelegramScraper:
             logger.info("Heuristic parser found no signal matches. Falling back to Gemini LLM...")
 
         # 2. Try Gemini API fallback if key is configured
-        if self.gemini_key and self.gemini_key != "your_gemini_api_key_here":
+        if self.gemini_key:
             try:
                 return self.parse_llm(text)
             except Exception as e:
