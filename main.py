@@ -18,14 +18,15 @@ if hasattr(sys.stdout, "reconfigure"):
     except Exception:
         pass
 
-# Configure Logging
+# Configure Logging (using force=True overrides any loggers initialized by imported libraries)
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
     handlers=[
         logging.StreamHandler(sys.stdout),
         logging.FileHandler("teletrader.log", encoding="utf-8")
-    ]
+    ],
+    force=True
 )
 logger = logging.getLogger("TeleTrader.main")
 
