@@ -106,9 +106,30 @@ class TradeLockerClient:
         logger.info("Resolving Gold (XAU/USD) instrument...")
         try:
             instruments_df = self.client.get_all_instruments()
+            # 1. First priority: Exact standard XAUUSD symbols
             for _, row in instruments_df.iterrows():
                 symbol_name = str(row["name"]).upper()
-                if symbol_name in ["XAUUSD", "GOLD", "XAU/USD"] or "XAU" in symbol_name:
+                if symbol_name in ["XAUUSD", "GOLD", "XAU/USD"]:
+                    self.gold_instrument_id = int(row["id"])
+                    self.gold_tradable_instrument_id = int(row["tradableInstrumentId"])
+                    self.gold_symbol_name = str(row["name"])
+                    logger.info(f"Found Gold instrument: {self.gold_symbol_name} (ID: {self.gold_instrument_id}, Tradable ID: {self.gold_tradable_instrument_id})")
+                    return
+            
+            # 2. Second priority: Standard Gold symbols containing USD (e.g. XAUUSD.pro)
+            for _, row in instruments_df.iterrows():
+                symbol_name = str(row["name"]).upper()
+                if "XAU" in symbol_name and "USD" in symbol_name:
+                    self.gold_instrument_id = int(row["id"])
+                    self.gold_tradable_instrument_id = int(row["tradableInstrumentId"])
+                    self.gold_symbol_name = str(row["name"])
+                    logger.info(f"Found Gold instrument: {self.gold_symbol_name} (ID: {self.gold_instrument_id}, Tradable ID: {self.gold_tradable_instrument_id})")
+                    return
+                    
+            # 3. Third priority: Fallback to any generic XAU symbol
+            for _, row in instruments_df.iterrows():
+                symbol_name = str(row["name"]).upper()
+                if "XAU" in symbol_name:
                     self.gold_instrument_id = int(row["id"])
                     self.gold_tradable_instrument_id = int(row["tradableInstrumentId"])
                     self.gold_symbol_name = str(row["name"])
