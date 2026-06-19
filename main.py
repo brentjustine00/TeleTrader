@@ -30,8 +30,7 @@ class HealthCheckHandler(SimpleHTTPRequestHandler):
         self.wfile.write(b'{"status": "healthy"}')
 
     def log_message(self, format, *args):
-        # Override to suppress default HTTP server access logs
-        pass
+        logger.info(f"[HEALTH CHECK] Ping received: {format % args}")
 
 def run_health_check_server():
     try:
