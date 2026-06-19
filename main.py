@@ -11,6 +11,13 @@ from tradelocker_client import TradeLockerClient
 from scraper import TelegramScraper
 from risk import RiskManager
 
+# Force stdout to be line-buffered so logs appear instantly on Render/Docker
+if hasattr(sys.stdout, "reconfigure"):
+    try:
+        sys.stdout.reconfigure(line_buffering=True)
+    except Exception:
+        pass
+
 # Configure Logging
 logging.basicConfig(
     level=logging.INFO,
