@@ -85,6 +85,36 @@ class TeleTraderBot:
         
         action_lower = action.lower()
         
+        # --- Opposite Position & Order Auto-Close (Contradiction Mitigation) ---
+        if action_lower in ["buy", "sell", "buy limit", "sell limit", "buy stop", "sell stop"]:
+            side = "buy" if "buy" in action_lower else "sell"
+            opposite_side = "sell" if side == "buy" else "buy"
+            
+            # 1. Close active opposite positions
+            active_pos_ids = list(self.risk_manager.tracked_trades.keys())
+            for pos_key in active_pos_ids:
+                trade = self.risk_manager.tracked_trades[pos_key]
+                if trade["side"] == opposite_side:
+                    pos_id = int(pos_key)
+                    logger.info(f"Signal contradiction detected! Fully closing opposite {opposite_side.upper()} position {pos_id} before entering {action.upper()}.")
+                    self.tl_client.close_position_fully(pos_id)
+                    self.risk_manager.tracked_trades.pop(pos_key)
+                    
+            # 2. Cancel pending opposite orders
+            pending_order_keys = list(self.risk_manager.pending_orders.keys())
+            for order_key in pending_order_keys:
+                pending_order = self.risk_manager.pending_orders[order_key]
+                if pending_order["side"] == opposite_side:
+                    order_id = int(order_key)
+                    logger.info(f"Signal contradiction detected! Cancelling opposite pending {opposite_side.upper()} order {order_id}.")
+                    try:
+                        self.tl_client.client.delete_order(order_id)
+                    except Exception as e:
+                        logger.error(f"Failed to delete pending order {order_id}: {e}")
+                    self.risk_manager.pending_orders.pop(order_key)
+                    
+            self.risk_manager.save_state()
+        
         # 1. Market Orders (Buy, Sell)
         if action_lower in ["buy", "sell"]:
             side = "buy" if action_lower == "buy" else "sell"
