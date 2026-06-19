@@ -3,6 +3,8 @@ import logging
 import sys
 import json
 import os
+import threading
+from http.server import SimpleHTTPRequestHandler, HTTPServer
 from typing import Dict, Any, Optional
 
 from tradelocker_client import TradeLockerClient
@@ -19,6 +21,27 @@ logging.basicConfig(
     ]
 )
 logger = logging.getLogger("TeleTrader.main")
+
+class HealthCheckHandler(SimpleHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header("Content-type", "application/json")
+        self.end_headers()
+        self.wfile.write(b'{"status": "healthy"}')
+
+    def log_message(self, format, *args):
+        # Override to suppress default HTTP server access logs
+        pass
+
+def run_health_check_server():
+    try:
+        port = int(os.environ.get("PORT", 8080))
+        print(f"[HEALTH CHECK] Starting server on port {port}...", flush=True)
+        server = HTTPServer(("0.0.0.0", port), HealthCheckHandler)
+        print(f"[HEALTH CHECK] Server successfully bound to port {port}. Running forever...", flush=True)
+        server.serve_forever()
+    except Exception as e:
+        print(f"[HEALTH CHECK CRITICAL ERROR] Failed to start web server: {e}", flush=True)
 
 class TeleTraderBot:
     def __init__(self, config_path: str = "config.json"):
@@ -136,6 +159,9 @@ class TeleTraderBot:
             logger.error(f"Unsupported action: {action}")
 
     async def run(self):
+        # 0. Start health check server for Render compatibility
+        threading.Thread(target=run_health_check_server, daemon=True).start()
+        
         # 1. Load config
         self.load_config()
         
