@@ -86,7 +86,7 @@ class TelegramScraper:
             else:
                 logger.info("Message did not contain a valid Gold trading signal.")
                 
-        await self.client.start()
+        await self.client.start()  # type: ignore
         logger.info(f"Telegram client started. Listening to channels: {self.channel_ids}")
         await self.client.run_until_disconnected()
 
