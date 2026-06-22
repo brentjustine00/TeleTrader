@@ -73,6 +73,7 @@ class TeleTraderBot:
         
         action = signal.get("action")
         entry_price = signal.get("entry_price")
+        entry_price_high = signal.get("entry_price_high")
         stop_loss = signal.get("stop_loss")
         take_profits = signal.get("take_profits", [])
         
@@ -180,12 +181,12 @@ class TeleTraderBot:
                                 side=side,
                                 total_qty=quantity,
                                 tp_levels=take_profits,
-                            sl_level=stop_loss
-                        )
-                except Exception as e:
-                    logger.error(f"Error querying position for order {order_id}: {e}")
-            else:
-                logger.error("Market order placement failed.")
+                                sl_level=stop_loss
+                            )
+                    except Exception as e:
+                        logger.error(f"Error querying position for order {order_id}: {e}")
+                else:
+                    logger.error("Market order placement failed.")
             else:
                 # Fallback: Place a pending limit order at the entry boundary price
                 logger.info(f"Placing pending LIMIT order at {entry_boundary} instead of market order to prevent bad entry.")
