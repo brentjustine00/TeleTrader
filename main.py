@@ -125,45 +125,87 @@ class TeleTraderBot:
         # 1. Market Orders (Buy, Sell)
         if action_lower in ["buy", "sell"]:
             side = "buy" if action_lower == "buy" else "sell"
-            order_id = self.tl_client.execute_market_order(
-                side=side,
-                quantity=quantity,
-                stop_loss=stop_loss,
-                take_profit=take_profit_target
-            )
             
-            if order_id:
-                logger.info(f"Market order placed successfully. Order ID: {order_id}. Waiting for fill match...")
-                # Wait briefly for execution engine to process
-                await asyncio.sleep(2.0)
+            # Slippage / bad entry check
+            try:
+                quotes = self.tl_client.get_quotes()
+                current_price = quotes["ask"] if side == "buy" else quotes["bid"]
+            except Exception as e:
+                logger.error(f"Failed to fetch current quotes for slippage check: {e}. Proceeding with market order.")
+                current_price = None
                 
-                try:
-                    position_id = self.tl_client.client.get_position_id_from_order_id(order_id)
-                    if position_id is not None:
-                        self.risk_manager.track_trade(
-                            position_id=position_id,
-                            order_id=order_id,
-                            entry_price=entry_price,
-                            side=side,
-                            total_qty=quantity,
-                            tp_levels=take_profits,
-                            sl_level=stop_loss
-                        )
-                    else:
-                        logger.warning(f"Could not immediately find position for Order ID {order_id}. Adding to pending checks.")
-                        # Add to pending orders so the RiskManager polling loop matches it when filled
-                        self.risk_manager.track_pending_order(
-                            order_id=order_id,
-                            entry_price=entry_price,
-                            side=side,
-                            total_qty=quantity,
-                            tp_levels=take_profits,
+            entry_boundary = entry_price_high if entry_price_high is not None else entry_price
+            slippage_tolerance = float(self.config.get("risk", {}).get("slippage_tolerance", 1.0))
+            
+            should_place_market = True
+            if current_price is not None:
+                if side == "buy" and current_price > entry_boundary + slippage_tolerance:
+                    should_place_market = False
+                    logger.warning(f"Slippage limit exceeded: Current Ask ({current_price}) is too far above entry high ({entry_boundary}). Falling back to a limit order.")
+                elif side == "sell" and current_price < entry_boundary - slippage_tolerance:
+                    should_place_market = False
+                    logger.warning(f"Slippage limit exceeded: Current Bid ({current_price}) is too far below entry low ({entry_boundary}). Falling back to a limit order.")
+
+            if should_place_market:
+                order_id = self.tl_client.execute_market_order(
+                    side=side,
+                    quantity=quantity,
+                    stop_loss=stop_loss,
+                    take_profit=take_profit_target
+                )
+                
+                if order_id:
+                    logger.info(f"Market order placed successfully. Order ID: {order_id}. Waiting for fill match...")
+                    # Wait briefly for execution engine to process
+                    await asyncio.sleep(2.0)
+                    
+                    try:
+                        position_id = self.tl_client.client.get_position_id_from_order_id(order_id)
+                        if position_id is not None:
+                            self.risk_manager.track_trade(
+                                position_id=position_id,
+                                order_id=order_id,
+                                entry_price=entry_price,
+                                side=side,
+                                total_qty=quantity,
+                                tp_levels=take_profits,
+                                sl_level=stop_loss
+                            )
+                        else:
+                            logger.warning(f"Could not immediately find position for Order ID {order_id}. Adding to pending checks.")
+                            # Add to pending orders so the RiskManager polling loop matches it when filled
+                            self.risk_manager.track_pending_order(
+                                order_id=order_id,
+                                entry_price=entry_price,
+                                side=side,
+                                total_qty=quantity,
+                                tp_levels=take_profits,
                             sl_level=stop_loss
                         )
                 except Exception as e:
                     logger.error(f"Error querying position for order {order_id}: {e}")
             else:
                 logger.error("Market order placement failed.")
+            else:
+                # Fallback: Place a pending limit order at the entry boundary price
+                logger.info(f"Placing pending LIMIT order at {entry_boundary} instead of market order to prevent bad entry.")
+                order_id = self.tl_client.execute_pending_order(
+                    type_="limit",
+                    side=side,
+                    quantity=quantity,
+                    price=entry_boundary,
+                    stop_loss=stop_loss,
+                    take_profit=take_profit_target
+                )
+                if order_id:
+                    self.risk_manager.track_pending_order(
+                        order_id=order_id,
+                        entry_price=entry_boundary,
+                        side=side,
+                        total_qty=quantity,
+                        tp_levels=take_profits,
+                        sl_level=stop_loss
+                    )
                 
         # 2. Pending Orders (Limit or Stop)
         elif action_lower in ["buy limit", "sell limit", "buy stop", "sell stop"]:

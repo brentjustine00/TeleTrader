@@ -196,8 +196,9 @@ class RiskManager:
             tp_levels = trade["tp_levels"]
             highest_tp_hit = trade["highest_tp_hit"]
             
-            # Synchronize current remaining qty from API
+            # Synchronize current remaining qty and actual average price from API
             trade["current_qty"] = api_pos["qty"]
+            trade["avg_price"] = api_pos["avg_price"]
             
             # The exit price depends on trade direction:
             # - For a BUY position, we sell to close -> exit price is Bid
@@ -225,7 +226,7 @@ class RiskManager:
         Executes partial close and stop loss modification according to cascading risk logic.
         """
         side = trade["side"]
-        entry_price = trade["entry_price"]
+        entry_price = trade.get("avg_price", trade["entry_price"])
         tp_levels = trade["tp_levels"]
         total_qty = trade["total_qty"]
         current_qty = trade["current_qty"]
