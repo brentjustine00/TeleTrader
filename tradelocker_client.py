@@ -110,7 +110,7 @@ class TradeLockerClient:
             for _, row in instruments_df.iterrows():
                 symbol_name = str(row["name"]).upper()
                 if symbol_name in ["XAUUSD", "GOLD", "XAU/USD"]:
-                    self.gold_instrument_id = int(row["id"])
+                    self.gold_instrument_id = int(row["tradableInstrumentId"])
                     self.gold_tradable_instrument_id = int(row["tradableInstrumentId"])
                     self.gold_symbol_name = str(row["name"])
                     logger.info(f"Found Gold instrument: {self.gold_symbol_name} (ID: {self.gold_instrument_id}, Tradable ID: {self.gold_tradable_instrument_id})")
@@ -120,7 +120,7 @@ class TradeLockerClient:
             for _, row in instruments_df.iterrows():
                 symbol_name = str(row["name"]).upper()
                 if "XAU" in symbol_name and "USD" in symbol_name:
-                    self.gold_instrument_id = int(row["id"])
+                    self.gold_instrument_id = int(row["tradableInstrumentId"])
                     self.gold_tradable_instrument_id = int(row["tradableInstrumentId"])
                     self.gold_symbol_name = str(row["name"])
                     logger.info(f"Found Gold instrument: {self.gold_symbol_name} (ID: {self.gold_instrument_id}, Tradable ID: {self.gold_tradable_instrument_id})")
@@ -130,7 +130,7 @@ class TradeLockerClient:
             for _, row in instruments_df.iterrows():
                 symbol_name = str(row["name"]).upper()
                 if "XAU" in symbol_name:
-                    self.gold_instrument_id = int(row["id"])
+                    self.gold_instrument_id = int(row["tradableInstrumentId"])
                     self.gold_tradable_instrument_id = int(row["tradableInstrumentId"])
                     self.gold_symbol_name = str(row["name"])
                     logger.info(f"Found Gold instrument: {self.gold_symbol_name} (ID: {self.gold_instrument_id}, Tradable ID: {self.gold_tradable_instrument_id})")
