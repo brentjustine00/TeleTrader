@@ -125,15 +125,22 @@ class RiskManager:
 
     async def check_pending_orders(self):
         """
-        Checks if any pending orders have been filled and promotes them to active positions.
+        Checks if any pending orders have been filled and promotes them to active positions,
+        or cancels them if market price hits TP targets before filling.
         """
+        quotes = None
+        try:
+            quotes = self.tl_client.get_quotes()
+        except Exception as e:
+            logger.error(f"Failed to fetch quotes for pending order check: {e}")
+            
         pending_keys = list(self.pending_orders.keys())
         for order_key in pending_keys:
             order_id = int(order_key)
             trade_info = self.pending_orders[order_key]
             
+            # 1. Check if the order was filled first
             try:
-                # Try to get the filled position ID associated with this order ID
                 position_id = self.tl_client.get_position_id_from_order_id(order_id)
                 if position_id is not None:
                     logger.info(f"Pending Order {order_id} has been filled! Promoting to Active Position {position_id}.")
@@ -150,8 +157,32 @@ class RiskManager:
                     # Remove from pending list
                     self.pending_orders.pop(order_key)
                     self.save_state()
+                    continue
             except Exception as e:
                 logger.error(f"Error checking pending order fill status for order {order_id}: {e}")
+                
+            # 2. If not filled, check if any TP target has already been reached
+            if quotes and trade_info.get("tp_levels"):
+                tp_levels = trade_info["tp_levels"]
+                side = trade_info["side"]
+                current_price = quotes["bid"] if side == "buy" else quotes["ask"]
+                
+                # Check against first TP target (TP1)
+                tp1 = tp_levels[0]
+                tp_hit = False
+                if side == "buy" and current_price >= tp1:
+                    tp_hit = True
+                elif side == "sell" and current_price <= tp1:
+                    tp_hit = True
+                    
+                if tp_hit:
+                    logger.info(f"Pending Order {order_id} cancelled: Market price ({current_price}) reached TP target ({tp1}) before order was filled.")
+                    try:
+                        self.tl_client.client.delete_order(order_id)
+                    except Exception as e:
+                        logger.error(f"Failed to delete pending order {order_id} on broker: {e}")
+                    self.pending_orders.pop(order_key)
+                    self.save_state()
 
     async def monitor_trades(self):
         """
