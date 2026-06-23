@@ -296,6 +296,18 @@ class TradeLockerClient:
             logger.error(f"Error fetching active positions: {e}")
             return []
 
+    def get_position_id_from_order_id(self, order_id: int) -> Optional[int]:
+        """
+        Retrieves the active position ID associated with the given order ID.
+        """
+        if not self.client:
+            raise RuntimeError("Client not connected.")
+        try:
+            return self.client.get_position_id_from_order_id(order_id)
+        except Exception as e:
+            logger.error(f"Error getting position ID from order ID {order_id}: {e}")
+            return None
+
     def get_position_stop_loss(self, position_id: int) -> Optional[float]:
         """
         Fetches the current stop loss price of an active position by searching orders history.
