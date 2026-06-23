@@ -167,16 +167,16 @@ class RiskManager:
                 side = trade_info["side"]
                 current_price = quotes["bid"] if side == "buy" else quotes["ask"]
                 
-                # Check against first TP target (TP1)
-                tp1 = tp_levels[0]
+                # Check against the highest/final TP target
+                highest_tp = tp_levels[-1]
                 tp_hit = False
-                if side == "buy" and current_price >= tp1:
+                if side == "buy" and current_price >= highest_tp:
                     tp_hit = True
-                elif side == "sell" and current_price <= tp1:
+                elif side == "sell" and current_price <= highest_tp:
                     tp_hit = True
                     
                 if tp_hit:
-                    logger.info(f"Pending Order {order_id} cancelled: Market price ({current_price}) reached TP target ({tp1}) before order was filled.")
+                    logger.info(f"Pending Order {order_id} cancelled: Market price ({current_price}) reached final TP target ({highest_tp}) before order was filled.")
                     try:
                         self.tl_client.client.delete_order(order_id)
                     except Exception as e:
