@@ -66,6 +66,31 @@ class TestParser(unittest.TestCase):
         result = self.scraper.parse_heuristic(text)
         self.assertNilOrEmpty(result)
 
+    def test_parse_message_with_static_sl(self):
+        config_with_static_sl = {
+            "telegram": {
+                "api_id": 123456,
+                "api_hash": "mockhash",
+                "channel_ids": [123, 456],
+                "channel_settings": {
+                    "456": {
+                        "static_sl_points": 12.0
+                    }
+                }
+            },
+            "gemini": {
+                "api_key": "your_gemini_api_key_here"
+            }
+        }
+        scraper = TelegramScraper(config_with_static_sl, lambda x: None)
+        # Message has Buy, entry 4151, and TPs, but NO stop loss!
+        text = "GOLD BUY 4151\nTP1 4153\nTP2 4156"
+        result = scraper.parse_message(text, channel_id=456)
+        self.assertIsNotNone(result)
+        self.assertEqual(result["action"], "Buy")
+        self.assertEqual(result["entry_price"], 4151.0)
+        self.assertIsNone(result["stop_loss"])
+
     def assertNilOrEmpty(self, result):
         self.assertTrue(result is None or result.get("action") is None)
 

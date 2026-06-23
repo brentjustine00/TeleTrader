@@ -76,7 +76,23 @@ class TeleTraderBot:
         entry_price_high = signal.get("entry_price_high")
         stop_loss = signal.get("stop_loss")
         take_profits = signal.get("take_profits", [])
+        channel_id = signal.get("channel_id")
         
+        # Resolve static Stop Loss points if configured for this channel
+        channel_settings = self.config.get("telegram", {}).get("channel_settings", {})
+        chan_conf = {}
+        if channel_id is not None:
+            chan_conf = channel_settings.get(str(channel_id), {}) or channel_settings.get(channel_id, {})
+            
+        static_sl_points = chan_conf.get("static_sl_points")
+        if static_sl_points is not None and entry_price is not None:
+            action_lower = action.lower() if action else ""
+            if "buy" in action_lower:
+                stop_loss = entry_price - float(static_sl_points)
+            elif "sell" in action_lower:
+                stop_loss = entry_price + float(static_sl_points)
+            logger.info(f"Applying channel-specific static SL for channel {channel_id}: {stop_loss} ({static_sl_points} points)")
+            
         if not action or entry_price is None or stop_loss is None:
             logger.error(f"Signal is missing required fields. Action: {action}, Entry: {entry_price}, SL: {stop_loss}")
             return

@@ -12,7 +12,7 @@ logger = logging.getLogger("TeleTrader.scraper")
 # Pydantic schema for structured output from Gemini
 class GoldSignalSchema(BaseModel):
     is_gold_signal: bool = Field(
-        description="True if the message is a trading signal specifically for Gold/XAUUSD, otherwise False"
+        description="True if the message is a active NEW entry/pending order trading signal specifically for Gold/XAUUSD. MUST be False if the message is a profit/results update (e.g., 'TP hit', 'pips profit', 'TP1 reached'), a close instruction (e.g., 'close half', 'close now'), or general channel advertisement."
     )
     action: Optional[str] = Field(
         description="Type of order: Buy, Sell, Buy Limit, Sell Limit, Buy Stop, Sell Stop. Must be one of these exact values, or null if not a signal."
@@ -78,8 +78,9 @@ class TelegramScraper:
             logger.info(f"Received raw message from chat {sender_id}:\n{message_text}")
             
             # Run the parser pipeline
-            parsed_signal = self.parse_message(message_text)
+            parsed_signal = self.parse_message(message_text, sender_id)
             if parsed_signal:
+                parsed_signal["channel_id"] = sender_id
                 logger.info(f"Successfully parsed Gold signal: {parsed_signal}")
                 # Dispatch signal to orchestrator
                 await self.signal_callback(parsed_signal)
@@ -90,19 +91,26 @@ class TelegramScraper:
         logger.info(f"Telegram client started. Listening to channels: {self.channel_ids}")
         await self.client.run_until_disconnected()
 
-    def parse_message(self, text: str) -> Optional[Dict[str, Any]]:
+    def parse_message(self, text: str, channel_id: Optional[int] = None) -> Optional[Dict[str, Any]]:
         """
         Parsing pipeline trying heuristic NLP first, then falling back to Gemini.
         """
+        # Check if this channel has a static SL configured
+        channel_settings = self.telegram_config.get("channel_settings", {})
+        chan_conf = {}
+        if channel_id is not None:
+            chan_conf = channel_settings.get(str(channel_id), {}) or channel_settings.get(channel_id, {})
+        has_static_sl = chan_conf.get("static_sl_points") is not None
+
         # 1. Try heuristic parser
         heuristic_result = self.parse_heuristic(text)
         
         if heuristic_result:
-            # Validate if we got all core metrics: asset, action, entry, SL, and at least 2 TPs
+            # Validate if we got all core metrics: asset, action, entry, SL (or have static SL), and at least 2 TPs
             has_core = (
                 heuristic_result.get("action") is not None and
                 heuristic_result.get("entry_price") is not None and
-                heuristic_result.get("stop_loss") is not None and
+                (heuristic_result.get("stop_loss") is not None or has_static_sl) and
                 len(heuristic_result.get("take_profits", [])) >= 2
             )
             if has_core:
@@ -244,8 +252,10 @@ class TelegramScraper:
                 system_instruction=(
                     "You are a layout-adaptive trade signal parser. You translate messy channel updates "
                     "into standard signal details. Verify the asset is strictly GOLD/XAUUSD. "
-                    "If it is not a Gold signal, set is_gold_signal to false. "
-                    "The action MUST be one of: Buy, Sell, Buy Limit, Sell Limit, Buy Stop, Sell Stop. "
+                    "Identify if the message is a active NEW entry or pending order signal. "
+                    "CRITICAL: If the message is a profit/results update (e.g., 'TP hit', '90+ pips profit', 'running 50+ pips'), "
+                    "trade modification, close/exit update, or non-signal advertisement, you MUST set is_gold_signal to false. "
+                    "The action MUST be one of: Buy, Sell, Buy Limit, Sell Limit, Buy Stop, Sell Stop, or null if it's not a new signal. "
                     "Take profits must be a list of target prices sorted in order away from the entry price."
                 )
             )
